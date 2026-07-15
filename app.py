@@ -56,7 +56,7 @@ def load_template():
     with open("DAR 27-06-2026.xlsx", "rb") as f:
         return f.read()
 
-source_file = st.file_uploader("Upload Daily Log (must contain 'UREA' sheet)", type=["xlsx", "xls"])
+source_file = st.file_uploader("Upload Daily Analysis Report DAR (must contain 'UREA' sheet)", type=["xlsx", "xls"])
 
 if source_file is not None:
     # Provide visual feedback during the blocking file read operation
