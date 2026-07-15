@@ -4,6 +4,32 @@ from io import BytesIO
 
 st.set_page_config(page_title="UREA Shift Data Sync", layout="centered")
 
+# --- CSS STYLING FOR THE FOOTER ---
+st.markdown("""
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: transparent;
+        color: gray;
+        text-align: center;
+        padding: 15px;
+        font-size: 14px;
+        border-top: 1px solid #eaeaea;
+    }
+    .footer a {
+        color: #0072b1; /* LinkedIn Blue */
+        text-decoration: none;
+        font-weight: bold;
+    }
+    .footer a:hover {
+        text-decoration: underline;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("Daily UREA Plant Data Sync")
 st.markdown("Upload your daily analytical report to auto-populate the DAR template.")
 
@@ -24,7 +50,7 @@ CELL_MAPPING = {
     'R19': 'F16', 'R20': 'E16', 'R21': 'D16'
 }
 
-# OPTIMIZATION: Cache the template file in memory to avoid repeated disk reads
+# Cache the template file in memory to avoid repeated disk reads
 @st.cache_data
 def load_template():
     with open("DAR 27-06-2026.xlsx", "rb") as f:
@@ -33,7 +59,7 @@ def load_template():
 source_file = st.file_uploader("Upload Daily Log (must contain 'UREA' sheet)", type=["xlsx", "xls"])
 
 if source_file is not None:
-    # OPTIMIZATION: Provide visual feedback during the blocking file read operation
+    # Provide visual feedback during the blocking file read operation
     with st.spinner("Processing data and generating report..."):
         try:
             # Load the uploaded source file
@@ -58,7 +84,7 @@ if source_file is not None:
                 target_wb.save(output)
                 output.seek(0)
                 
-                # OPTIMIZATION: Explicitly close workbooks to prevent memory leaks
+                # Explicitly close workbooks to prevent memory leaks
                 source_wb.close()
                 target_wb.close()
                 
@@ -77,4 +103,15 @@ if source_file is not None:
                 
             else:
                 st.error("The uploaded file does not contain a sheet named 'UREA'. Please verify the file.")
-                source_wb.close() # Close it even if it fails
+                source_wb.close()
+                
+        except Exception as e:
+            st.error(f"An error occurred while processing the files: {e}")
+
+# --- FOOTER SECTION ---
+st.markdown(f"""
+    <div class="footer">
+        Developed by <a href="https://www.linkedin.com/in/wikitunio" target="_blank">Waqar Ahmed Tunio</a> <br>
+        Email: <a href="mailto:ahmed.waqar@pafl.com.pk">ahmed.waqar@pafl.com.pk</a>
+    </div>
+    """, unsafe_allow_html=True)
