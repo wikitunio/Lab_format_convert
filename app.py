@@ -79,14 +79,3 @@ if source_file is not None:
                 st.error("The uploaded file does not contain a sheet named 'UREA'. Please verify the file.")
                 source_wb.close() # Close it even if it fails
 
-
-    # -- FOOTER SECTION --
-st.markdown(f"""
-    <div class="footer">
-        Developed by <a href="https://www.linkedin.com/in/wikitunio" target="_blank">Waqar Ahmed Tunio</a> <br>
-        Email: <a href="mailto:ahmed.waqar@pafl.com.pk">ahmed.waqar@pafl.com.pk</a>
-    </div>
-    """, unsafe_allow_html=True)
-                
-        except Exception as e:
-            st.error(f"An error occurred while processing the files: {e}")
