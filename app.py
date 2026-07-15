@@ -7,7 +7,7 @@ st.set_page_config(page_title="UREA Shift Data Sync", layout="centered")
 st.title("Daily UREA Plant Data Sync")
 st.markdown("Upload your daily analytical report to auto-populate the DAR template.")
 
-# Hardcoded mapping dictionary from the provided image
+# Hardcoded mapping dictionary
 CELL_MAPPING = {
     'A1': 'A2', 'C7': 'B5', 'C8': 'C5', 'C9': 'D5', 'D7': 'E5', 'D8': 'F5', 'D9': 'G5',
     'E7': 'H5', 'E8': 'I5', 'E9': 'J5', 'F7': 'K5', 'F8': 'L5', 'F9': 'M5', 'G7': 'N5',
@@ -24,55 +24,60 @@ CELL_MAPPING = {
     'R19': 'F16', 'R20': 'E16', 'R21': 'D16'
 }
 
-# Uploader for the daily source file
+# OPTIMIZATION: Cache the template file in memory to avoid repeated disk reads
+@st.cache_data
+def load_template():
+    with open("DAR 27-06-2026.xlsx", "rb") as f:
+        return f.read()
+
 source_file = st.file_uploader("Upload Daily Log (must contain 'UREA' sheet)", type=["xlsx", "xls"])
 
 if source_file is not None:
-    try:
-        # Load the uploaded source file
-        source_wb = openpyxl.load_workbook(source_file, data_only=True)
-        
-        if "UREA" in source_wb.sheetnames:
-            source_sheet = source_wb["UREA"]
+    # OPTIMIZATION: Provide visual feedback during the blocking file read operation
+    with st.spinner("Processing data and generating report..."):
+        try:
+            # Load the uploaded source file
+            source_wb = openpyxl.load_workbook(source_file, data_only=True)
             
-            # Extract date from A1
-            file_date = source_sheet['A1'].value
-            st.success(f"✅ Daily log loaded successfully. Detected Date: **{file_date}**")
-            
-            # Load the target DAR master template from the repository
-            target_filename = "DAR 27-06-2026.xlsx"
-            target_wb = openpyxl.load_workbook(target_filename)
-            target_sheet = target_wb["Sheet1"] 
-            
-            # ---------------------------------------------------------
-            # DATA MAPPING LOGIC (Using the hardcoded dictionary)
-            # ---------------------------------------------------------
-            for source_cell, target_cell in CELL_MAPPING.items():
-                target_sheet[target_cell].value = source_sheet[source_cell].value
-            
-            # Save the updated target file into an in-memory buffer
-            output = BytesIO()
-            target_wb.save(output)
-            output.seek(0)
-            
-            st.info("Template populated successfully! Ready for download.")
-            
-            # Format the date nicely for the filename if it exists
-            if file_date:
-                safe_date = str(file_date).replace("/", "-").replace(":", "-").split()[0]
-            else:
-                safe_date = "Updated"
+            if "UREA" in source_wb.sheetnames:
+                source_sheet = source_wb["UREA"]
                 
-            # Provide the download button for the new file
-            st.download_button(
-                label="📥 Download Updated DAR Report",
-                data=output,
-                file_name=f"DAR_{safe_date}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-        else:
-            st.error("The uploaded file does not contain a sheet named 'UREA'. Please verify the file.")
-            
-    except Exception as e:
-        st.error(f"An error occurred while processing the files: {e}")
+                # Extract date from A1
+                file_date = source_sheet['A1'].value
+                
+                # Load the cached DAR template from fast memory instead of disk
+                target_wb = openpyxl.load_workbook(BytesIO(load_template()))
+                target_sheet = target_wb["Sheet1"] 
+                
+                # Transfer data quickly
+                for source_cell, target_cell in CELL_MAPPING.items():
+                    target_sheet[target_cell].value = source_sheet[source_cell].value
+                
+                # Save to memory buffer
+                output = BytesIO()
+                target_wb.save(output)
+                output.seek(0)
+                
+                # OPTIMIZATION: Explicitly close workbooks to prevent memory leaks
+                source_wb.close()
+                target_wb.close()
+                
+                st.success(f"✅ Report for **{file_date}** generated successfully!")
+                
+                # Format the date nicely for the filename if it exists
+                safe_date = str(file_date).replace("/", "-").replace(":", "-").split()[0] if file_date else "Updated"
+                    
+                # Provide the download button
+                st.download_button(
+                    label="📥 Download Updated DAR Report",
+                    data=output,
+                    file_name=f"DAR_{safe_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                
+            else:
+                st.error("The uploaded file does not contain a sheet named 'UREA'. Please verify the file.")
+                source_wb.close() # Close it even if it fails
+                
+        except Exception as e:
+            st.error(f"An error occurred while processing the files: {e}")
