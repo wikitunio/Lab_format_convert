@@ -1,6 +1,7 @@
 import streamlit as st
 import openpyxl
 from io import BytesIO
+import datetime  # Added to handle exact date formatting
 
 st.set_page_config(page_title="UREA Shift Data Sync", layout="centered")
 
@@ -68,8 +69,19 @@ if source_file is not None:
             if "UREA" in source_wb.sheetnames:
                 source_sheet = source_wb["UREA"]
                 
-                # Extract date from A1
-                file_date = source_sheet['A1'].value
+                # Extract raw date from A1
+                raw_date = source_sheet['A1'].value
+                
+                # Format the date safely for the filename
+                if isinstance(raw_date, datetime.datetime):
+                    # If Excel stored it as a true date, format it nicely (e.g., 27-06-2026)
+                    safe_date = raw_date.strftime("%d-%m-%Y")
+                elif raw_date:
+                    # If Excel stored it as text, clean out characters that break filenames
+                    safe_date = str(raw_date).replace("/", "-").replace(":", "-").split()[0]
+                else:
+                    # Fallback if A1 is totally empty
+                    safe_date = "Updated"
                 
                 # Load the cached DAR template from fast memory instead of disk
                 target_wb = openpyxl.load_workbook(BytesIO(load_template()))
@@ -88,16 +100,13 @@ if source_file is not None:
                 source_wb.close()
                 target_wb.close()
                 
-                st.success(f"✅ Report for **{file_date}** generated successfully!")
-                
-                # Format the date nicely for the filename if it exists
-                safe_date = str(file_date).replace("/", "-").replace(":", "-").split()[0] if file_date else "Updated"
+                st.success(f"✅ Report for **{safe_date}** generated successfully!")
                     
-                # Provide the download button
+                # Provide the download button with the dynamic filename
                 st.download_button(
-                    label="📥 Download Updated DAR Report",
+                    label=f"📥 Download DAR Report ({safe_date})",
                     data=output,
-                    file_name=f"DAR_{safe_date}.xlsx",
+                    file_name=f"DAR {safe_date}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
