@@ -1,7 +1,8 @@
 import streamlit as st
 import openpyxl
 from io import BytesIO
-import datetime  # Added to handle exact date formatting
+import datetime
+import re
 
 st.set_page_config(page_title="UREA Shift Data Sync", layout="centered")
 
@@ -21,7 +22,7 @@ st.markdown("""
         border-top: 1px solid #eaeaea;
     }
     .footer a {
-        color: #0072b1; /* LinkedIn Blue */
+        color: #0072b1;
         text-decoration: none;
         font-weight: bold;
     }
@@ -60,49 +61,42 @@ def load_template():
 source_file = st.file_uploader("Upload Daily Analysis Report DAR (must contain 'UREA' sheet)", type=["xlsx", "xls"])
 
 if source_file is not None:
-    # Provide visual feedback during the blocking file read operation
     with st.spinner("Processing data and generating report..."):
         try:
-            # Load the uploaded source file
             source_wb = openpyxl.load_workbook(source_file, data_only=True)
             
             if "UREA" in source_wb.sheetnames:
                 source_sheet = source_wb["UREA"]
                 
-                # Extract raw date from A1
+                # --- STRICT A1 DATE EXTRACTION ---
                 raw_date = source_sheet['A1'].value
                 
-                # Format the date safely for the filename
                 if isinstance(raw_date, datetime.datetime):
-                    # If Excel stored it as a true date, format it nicely (e.g., 27-06-2026)
+                    # If it's a proper Excel date format
                     safe_date = raw_date.strftime("%d-%m-%Y")
                 elif raw_date:
-                    # If Excel stored it as text, clean out characters that break filenames
-                    safe_date = str(raw_date).replace("/", "-").replace(":", "-").split()[0]
+                    # If it's text, strip out any illegal filename characters like / : \ * ? " < > |
+                    safe_date = str(raw_date).strip()
+                    safe_date = re.sub(r'[\\/*?:"<>|]', '-', safe_date)
                 else:
-                    # Fallback if A1 is totally empty
-                    safe_date = "Updated"
+                    safe_date = "No_Date_Found"
+                # ---------------------------------
                 
-                # Load the cached DAR template from fast memory instead of disk
                 target_wb = openpyxl.load_workbook(BytesIO(load_template()))
                 target_sheet = target_wb["Sheet1"] 
                 
-                # Transfer data quickly
                 for source_cell, target_cell in CELL_MAPPING.items():
                     target_sheet[target_cell].value = source_sheet[source_cell].value
                 
-                # Save to memory buffer
                 output = BytesIO()
                 target_wb.save(output)
                 output.seek(0)
                 
-                # Explicitly close workbooks to prevent memory leaks
                 source_wb.close()
                 target_wb.close()
                 
                 st.success(f"✅ Report for **{safe_date}** generated successfully!")
                     
-                # Provide the download button with the dynamic filename
                 st.download_button(
                     label=f"📥 Download DAR Report ({safe_date})",
                     data=output,
